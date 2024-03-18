@@ -2,6 +2,7 @@
 # contributors: smlee
 
 # History
+# 2024-03-18 | v1.1 - add entrypoint, fixed ping method
 # 2024-03-15 | v1.0 - refactored for a common tool
 
 # Module import
@@ -24,16 +25,31 @@ class mariaConnect(object):
 
     def __post_init__(self):
         try:
-            if self.pool_:
-                self.conn_:object=self.conn_medium_.connection()
-                self.conn_.autocommit = True
-                self.cur_:object=self.conn_.cursor(pymysql.cursors.DictCursor)
-            else:
-                self.conn_:object=pymysql.connect(**self.conn_medium_)
-                self.conn_.autocommit = True
-                self.cur_:object=self.conn_.cursor(pymysql.cursors.DictCursor)
+            self.conn_:object=self.conn_medium_.connection() if self.pool_ else pymysql.connect(**self.conn_medium_)
+            self.conn_.autocommit = True
+            self.cur_:object=self.conn_.cursor(pymysql.cursors.DictCursor)
         except pymysql.MySQLError as e:
             raise RuntimeError(f"Error connection to the database: {e}")
+
+    def __enter__(self):
+        """Instantiate mariaConnect class object"""
+
+        return self
+    
+    def __exit__(self,
+                 exception_type,
+                 exception_value,
+                 traceback):
+        """Exit instantiation from __enter__
+        """
+
+        self.cur_.close()
+        self.conn_.close()
+
+        if not exception_type:
+            return True
+        else:
+            raise f"Exit error: {exception_type}, {exception_value}, {traceback}"
 
     def close(self):
         """Close the database connection
@@ -45,7 +61,7 @@ class mariaConnect(object):
     def ping(self):
         """Reconnet to database if connection is lost
         """
-        self.conn_.ping(reconnect=True)
+        self.conn_=self.conn_medium_.connection() if self.pool_ else pymysql.connect(**self.conn_medium_)
         self.conn_.autocommit = True
         self.cur_:object=self.conn_.cursor(pymysql.cursors.DictCursor)
 
@@ -131,7 +147,7 @@ class mariaConnect(object):
             
             try:
                 # check connection
-                if not self.conn_:
+                if not self.conn_.open:
                     self.ping()
                 # execute query
                 self.cur_.execute(query)
@@ -178,7 +194,7 @@ class mariaConnect(object):
                 assert all(row.keys() == fields for row in data[1:])
                 
                 # check database connection
-                if not self.conn_:
+                if not self.conn_.open:
                     self.ping()
                 # add database name if exists
                 if database:
@@ -232,7 +248,7 @@ class mariaConnect(object):
                 assert all(row.keys() == fields for row in data[1:])
                 
                 # check database connection
-                if not self.conn_:
+                if not self.conn_.open:
                     self.ping()
                 # add database name if exists
                 if database:

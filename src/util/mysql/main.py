@@ -49,7 +49,7 @@ class mariaConnect(object):
         if not exception_type:
             return True
         else:
-            raise f"Exit error: {exception_type}, {exception_value}, {traceback}"
+            raise BaseException(f"Exit error: {exception_type}, {exception_value}, {traceback}")
 
     def close(self):
         """Close the database connection

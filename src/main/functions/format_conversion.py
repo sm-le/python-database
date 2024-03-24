@@ -2,10 +2,12 @@
 # contributor: smlee
 
 # History
+# 2024-03-23 | v1.1 - add request format processing method
 # 2024-03-23 | v1.0 - first commit
 
 # Python module
 import zstandard
+from typing import Dict, List, Union
 
 # Main  
 class formatConversion:
@@ -19,6 +21,7 @@ class formatConversion:
         Args:
             target: mongodb or azure table
         """
+        cls.target = target
         cls.n_size = int(3*10e4) if target == "mongodb" else int(6*10e3)
 
         return cls
@@ -123,6 +126,31 @@ class formatConversion:
                 raise ValueError(f"Mode {mode} does not exist")
         except Exception as e:
             raise ValueError(f"Error: {e}")
+    
+    @classmethod
+    def process_request(cls,
+                        request_form:dict) -> Union[Dict,List]:
+        """Process request given in request form
+
+        Args:
+            request_form: a dictionary formatted request form for sequence database
+        Returns:
+            Dict[accession:position requested] or List[chunk requested]
+        """
+        # List a target accession to retrieve
+        idx_start = request_form.get("start", None) // cls.n_size
+        idx_end = request_form.get("end", None) // cls.n_size
+
+        partition_list = [f"{request_form.get('accession_version',None)}_{i}" for i in range(idx_start, idx_end+1)]
+        
+        # Get requested position per each partition
+        adj_pos_start = request_form.get("start", None) % cls.n_size
+        adj_pos_end = ( request_form.get("end", None) % cls.n_size ) + ( cls.n_size * (len(partition_list)-1) )
+
+        adj_position = { request_form.get("accession_version",None) : (adj_pos_start, adj_pos_end, request_form.get("strand", None)) }
+        
+        return partition_list, adj_position
+    
 
 
   

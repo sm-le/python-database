@@ -147,7 +147,7 @@ class mariaConnect(object):
             
             try:
                 # check connection
-                if not self.conn_.open:
+                if (not self.pool_ and not self.conn_.open) or not self.conn_:
                     self.ping()
                 # execute query
                 self.cur_.execute(query)
@@ -194,7 +194,7 @@ class mariaConnect(object):
                 assert all(row.keys() == fields for row in data[1:])
                 
                 # check database connection
-                if not self.conn_.open:
+                if not (not self.pool_ and not self.conn_.open) or not self.conn_:
                     self.ping()
                 # add database name if exists
                 if database:
@@ -256,14 +256,14 @@ class mariaConnect(object):
                 try:
                     # make data formats
                     fields_format = ", ".join(fields)
-                    values_format = ", ".join([f'({", ".join([f"%({i})" for i in fields])})'])
+                    values_format = ", ".join([f'({", ".join([f"%({i})s" for i in fields])})'])
 
                     # get features name to merge, if it is None it will update entire features given in fields
                     if update_targets:
                         field_names = [i for i in fields if i in update_targets]
                         update_format = ", ".join(f"{i}=VALUES({i})" for i in field_names)
                     else:
-                        update_format = ", ".join(f"{i}=VALUES({i})" for i in fields)
+                        update_format = ", ".join([f"{i}=VALUES({i})" for i in fields])
 
                     # make insert ignore query
                     query = f"INSERT IGNORE INTO {table_name} " \

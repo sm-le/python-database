@@ -11,4 +11,4 @@ setup(  name='database-connector',
         packages=find_packages(where='src'),
         install_requires=["pymysql","pymongo","DBUtils","azure-data-tables",
                           "azure-identity","azure-keyvault-secrets","python-dotenv",
-                          "zstandard"] )
+                          "zstandard","aiohttps"] )

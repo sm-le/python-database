@@ -194,7 +194,7 @@ class mariaConnect(object):
                 assert all(row.keys() == fields for row in data[1:])
                 
                 # check database connection
-                if not (not self.pool_ and not self.conn_.open) or not self.conn_:
+                if (not self.pool_ and not self.conn_.open) or not self.conn_:
                     self.ping()
                 # add database name if exists
                 if database:
@@ -202,7 +202,7 @@ class mariaConnect(object):
                 try:
                     # make data formats
                     fields_format = ", ".join(fields)
-                    values_format = ", ".join([f'({", ".join([f"%({i})" for i in fields])})'])
+                    values_format = ", ".join([f'({", ".join([f"%({i})s" for i in fields])})'])
 
                     # make insert ignore query
                     query = f"INSERT IGNORE INTO {table_name} " \
@@ -225,10 +225,11 @@ class mariaConnect(object):
     
     def merge(self,
               *,
-              data:list,
+              data:List[Dict],
               table_name:str,
               database:str=None,
-              update_targets=None):
+              update_targets:Union[List,str]=None,
+              increment:bool=False):
         """Merge data into the database
 
         Args:
@@ -236,6 +237,7 @@ class mariaConnect(object):
             table_name: a table name
             database: a database name
             update_targets: a list of features to update if the record already exists
+            increment: a boolean for single count increment update
         """
 
         try:
@@ -248,7 +250,7 @@ class mariaConnect(object):
                 assert all(row.keys() == fields for row in data[1:])
                 
                 # check database connection
-                if not self.conn_.open:
+                if (not self.pool_ and not self.conn_.open) or not self.conn_:
                     self.ping()
                 # add database name if exists
                 if database:
@@ -257,20 +259,28 @@ class mariaConnect(object):
                     # make data formats
                     fields_format = ", ".join(fields)
                     values_format = ", ".join([f'({", ".join([f"%({i})s" for i in fields])})'])
-
-                    # get features name to merge, if it is None it will update entire features given in fields
-                    if update_targets:
-                        field_names = [i for i in fields if i in update_targets]
-                        update_format = ", ".join(f"{i}=VALUES({i})" for i in field_names)
+            
+                    if increment:
+                        assert type(update_targets) == str, "update_targets must be a string"
+                        query = f"INSERT IGNORE INTO {table_name} " \
+                                f"({fields_format}) " \
+                                f"VALUES {values_format} " \
+                                f"ON DUPLICATE KEY UPDATE " \
+                                f"{update_targets}={update_targets}+1;"
                     else:
-                        update_format = ", ".join([f"{i}=VALUES({i})" for i in fields])
-
-                    # make insert ignore query
-                    query = f"INSERT IGNORE INTO {table_name} " \
-                            f"({fields_format}) " \
-                            f"VALUES {values_format} " \
-                            f"ON DUPLICATE KEY UPDATE " \
-                            f"{update_format};"
+                        # get features name to merge, if it is None it will update entire features given in fields
+                        if update_targets:
+                            assert type(update_targets) == list, "update_targets must be a list"
+                            field_names = [i for i in fields if i in update_targets]
+                            update_format = ", ".join(f"{i}=VALUES({i})" for i in field_names)
+                        else:
+                            update_format = ", ".join([f"{i}=VALUES({i})" for i in fields])
+                        # make insert ignore query
+                        query = f"INSERT IGNORE INTO {table_name} " \
+                                f"({fields_format}) " \
+                                f"VALUES {values_format} " \
+                                f"ON DUPLICATE KEY UPDATE " \
+                                f"{update_format};"
                     
                     # insert data
                     self.cur_.executemany(query,

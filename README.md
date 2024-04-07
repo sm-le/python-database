@@ -9,3 +9,8 @@ A collection of database connectors
 2. pymysql
 3. pymongo
 4. azure-data-tables
+5. azure-identity
+6. azure-keyvault-secrets
+7. python-dotenv
+8. zstandard
+9. aiohttps

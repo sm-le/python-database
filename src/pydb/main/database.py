@@ -13,6 +13,7 @@ from .func.create_db_pool import pooledDB
 from .func.get_secrets import get_secret
 from typing import List, Union, Dict
 from dataclasses import dataclass
+import asyncio
 
 # Main
 @dataclass
@@ -105,10 +106,10 @@ class databaseConnect:
                 assert features
                 assert parameters
                 assert name_filter
-                return self.database.query_entity(select=features,
-                                                 parameters=parameters,
-                                                 name_filter=name_filter,
-                                                 table_name=database)
+                return asyncio.run(self.database.query_entity(select=features,
+                                                              parameters=parameters,
+                                                              name_filter=name_filter,
+                                                              table_name=database))
         except:
             raise ValueError("Invalid input arguments")
 
@@ -152,8 +153,8 @@ class databaseConnect:
             elif self.name == "azure":
                 assert data
                 assert database
-                return self.database.insert_entity(entity=data,
-                                                   table_name=database)
+                asyncio.run(self.database.insert_entity(entity=data,
+                                                        table_name=database))
         except:
             raise ValueError("Invalid input arguments")
         

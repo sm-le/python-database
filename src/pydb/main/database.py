@@ -35,10 +35,10 @@ class databaseConnect:
     def __post_init__(self):
         secret = get_secret(self.name,self.override)
 
-        if self.name == "signal" or self.name == "record":
+        if self.name == "mariadb" or self.name == "mysql":
             self.database = mariaConnect(pooledDB(secret),True)
 
-        elif self.name == "sequence":
+        elif self.name == "mongodb":
             self.database = mongoConnect(secret)
             
         elif self.name == "azure":

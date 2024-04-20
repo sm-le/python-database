@@ -8,8 +8,7 @@
 # Module import
 import pymysql
 from dataclasses import dataclass
-from typing import Union
-from conf.error_message import emsg
+from typing import Union, List, Dict
 
 # Main
 @dataclass
@@ -75,23 +74,21 @@ class mariaConnect(object):
             database: a target database
         """
 
+        
+        assert query, "Please set your query"
+        assert query.lower().startswith("delete"), "Please set your delete query"
+        if database:
+            self.conn_.database = database
+        
         try:
-            assert query
-            assert query.lower().startswith("delete")
-            if database:
-                self.conn_.database = database
-            
-            try:
-                self.cur_.execute(query)
+            self.cur_.execute(query)
 
-                return True
-            
-            except pymysql.MySQLError as e:
-                raise RuntimeError(f"Error while deleting data from the database: {e}")
-            except Exception as e:
-                raise RuntimeError(f"Error: {emsg(e)}")
-        except:
-            raise ValueError(f"Please set your query")
+            return True
+        
+        except pymysql.MySQLError as e:
+            raise RuntimeError(f"Error while deleting data from the database: {e}")
+        except Exception as e:
+            raise RuntimeError(f"Error: {e}")
         
     def truncate(self,
                  table_name:str,
@@ -102,25 +99,23 @@ class mariaConnect(object):
             table_name: a table name
             database: a target database with the table
         """
+        
+        assert table_name, "Please set your table name"
+
+        if database:
+            table_name = f"{database}.{table_name}"
+        
         try:
-            assert table_name
+            query = f"TRUNCATE TABLE {table_name};"
 
-            if database:
-                table_name = f"{database}.{table_name}"
-            
-            try:
-                query = f"TRUNCATE TABLE {table_name};"
+            self.cur_.execute(query)
 
-                self.cur_.execute(query)
-
-                return True
-            
-            except pymysql.MySQLError as e:
-                raise RuntimeError(f"Error while deleting data from the database: {e}")
-            except Exception as e:
-                raise RuntimeError(f"Error: {emsg(e)}")
-        except:
-            raise ValueError(f"Please set your table name")
+            return True
+        
+        except pymysql.MySQLError as e:
+            raise RuntimeError(f"Error while deleting data from the database: {e}")
+        except Exception as e:
+            raise RuntimeError(f"{e}")
 
     def select(self,
                query:str,
@@ -138,38 +133,36 @@ class mariaConnect(object):
         """
         
         # check query 
-        try:
-            assert query
-            assert query.lower().startswith("select")
-            # check database name
-            if database:
-                self.conn_.database = database
-            
-            try:
-                # check connection
-                if (not self.pool_ and not self.conn_.open) or not self.conn_:
-                    self.ping()
-                # execute query
-                self.cur_.execute(query)
-                # fetch data
-                result = list()
-                complete = False
-                while not complete:
-                    rst = self.cur_.fetchmany(size=chunk_size)
 
-                    for i in rst:
-                        result.append(i)
-                    
-                    complete = len(rst) < chunk_size
+        assert query, "Please set your query"
+        assert query.lower().startswith("select"), "Please set your select query"
+        # check database name
+        if database:
+            self.conn_.database = database
+        
+        try:
+            # check connection
+            if (not self.pool_ and not self.conn_.open) or not self.conn_:
+                self.ping()
+            # execute query
+            self.cur_.execute(query)
+            # fetch data
+            result = list()
+            complete = False
+            while not complete:
+                rst = self.cur_.fetchmany(size=chunk_size)
+
+                for i in rst:
+                    result.append(i)
                 
-                return result
+                complete = len(rst) < chunk_size
             
-            except pymysql.MySQLError as e:
-                raise RuntimeError(f"Error while fetching data from the database: {e}")
-            except Exception as e:
-                raise RuntimeError(f"Error: {emsg(e)}")
-        except:
-            raise ValueError(f"Please set your query")
+            return result
+        
+        except pymysql.MySQLError as e:
+            raise RuntimeError(f"Error while fetching data from the database: {e}")
+        except Exception as e:
+            raise RuntimeError(f"{e}")
         
     def insert(self,
                *,
@@ -184,44 +177,41 @@ class mariaConnect(object):
             database: a database name
         """
 
+        
+        # check data type
+        assert type(data) == list, "Input data != type(list)"
+        assert len(data) > 0, "Input data is empty"
+
         try:
-            # check data type
-            assert type(data) == list
-            assert len(data) > 0
-
+            fields = data[0].keys()
+            assert all(row.keys() == fields for row in data[1:])
+            
+            # check database connection
+            if (not self.pool_ and not self.conn_.open) or not self.conn_:
+                self.ping()
+            # add database name if exists
+            if database:
+                self.conn_.database = database
             try:
-                fields = data[0].keys()
-                assert all(row.keys() == fields for row in data[1:])
+                # make data formats
+                fields_format = ", ".join(fields)
+                values_format = ", ".join([f'({", ".join([f"%({i})s" for i in fields])})'])
+
+                # make insert ignore query
+                query = f"INSERT IGNORE INTO {table_name} " \
+                        f"({fields_format}) " \
+                        f"VALUES {values_format}"
+                # insert data
+                self.cur_.executemany(query,
+                                        data)
                 
-                # check database connection
-                if (not self.pool_ and not self.conn_.open) or not self.conn_:
-                    self.ping()
-                # add database name if exists
-                if database:
-                    self.conn_.database = database
-                try:
-                    # make data formats
-                    fields_format = ", ".join(fields)
-                    values_format = ", ".join([f'({", ".join([f"%({i})s" for i in fields])})'])
-
-                    # make insert ignore query
-                    query = f"INSERT IGNORE INTO {table_name} " \
-                            f"({fields_format}) " \
-                            f"VALUES {values_format}"
-                    # insert data
-                    self.cur_.executemany(query,
-                                          data)
-                    
-                except pymysql.MySQLError as e:
-                    raise RuntimeError(f"Error while inserting data from the database: {e}")
-                except Exception as e:
-                    raise RuntimeError(f"Error: {emsg(e)}")
-
-            except:
-                raise TypeError(f"All fields must be identical.")
+            except pymysql.MySQLError as e:
+                raise RuntimeError(f"Error while inserting data from the database: {e}")
+            except Exception as e:
+                raise RuntimeError(f"{e}")
 
         except:
-            raise ValueError(f"Input data != type(list) or empty")
+            raise TypeError(f"All fields must be identical.")
     
     def merge(self,
               *,
@@ -240,61 +230,54 @@ class mariaConnect(object):
             increment: a boolean for single count increment update
         """
 
+        
+        # check data type
+        assert type(data) == list, "Input data != type(list)"
+        assert len(data) > 0, "Input data is empty"
+
+        
+        fields = data[0].keys()
+        assert all(row.keys() == fields for row in data[1:]), "All fields must be identical."
+        
+        # check database connection
+        if (not self.pool_ and not self.conn_.open) or not self.conn_:
+            self.ping()
+        # add database name if exists
+        if database:
+            self.conn_.database = database
         try:
-            # check data type
-            assert type(data) == list
-            assert len(data) > 0
-
-            try:
-                fields = data[0].keys()
-                assert all(row.keys() == fields for row in data[1:])
-                
-                # check database connection
-                if (not self.pool_ and not self.conn_.open) or not self.conn_:
-                    self.ping()
-                # add database name if exists
-                if database:
-                    self.conn_.database = database
-                try:
-                    # make data formats
-                    fields_format = ", ".join(fields)
-                    values_format = ", ".join([f'({", ".join([f"%({i})s" for i in fields])})'])
+            # make data formats
+            fields_format = ", ".join(fields)
+            values_format = ", ".join([f'({", ".join([f"%({i})s" for i in fields])})'])
+    
+            if increment:
+                assert type(update_targets) == str, "update_targets must be a string"
+                query = f"INSERT IGNORE INTO {table_name} " \
+                        f"({fields_format}) " \
+                        f"VALUES {values_format} " \
+                        f"ON DUPLICATE KEY UPDATE " \
+                        f"{update_targets}={update_targets}+1;"
+            else:
+                # get features name to merge, if it is None it will update entire features given in fields
+                if update_targets:
+                    assert type(update_targets) == list, "update_targets must be a list"
+                    field_names = [i for i in fields if i in update_targets]
+                    update_format = ", ".join(f"{i}=VALUES({i})" for i in field_names)
+                else:
+                    update_format = ", ".join([f"{i}=VALUES({i})" for i in fields])
+                # make insert ignore query
+                query = f"INSERT IGNORE INTO {table_name} " \
+                        f"({fields_format}) " \
+                        f"VALUES {values_format} " \
+                        f"ON DUPLICATE KEY UPDATE " \
+                        f"{update_format};"
             
-                    if increment:
-                        assert type(update_targets) == str, "update_targets must be a string"
-                        query = f"INSERT IGNORE INTO {table_name} " \
-                                f"({fields_format}) " \
-                                f"VALUES {values_format} " \
-                                f"ON DUPLICATE KEY UPDATE " \
-                                f"{update_targets}={update_targets}+1;"
-                    else:
-                        # get features name to merge, if it is None it will update entire features given in fields
-                        if update_targets:
-                            assert type(update_targets) == list, "update_targets must be a list"
-                            field_names = [i for i in fields if i in update_targets]
-                            update_format = ", ".join(f"{i}=VALUES({i})" for i in field_names)
-                        else:
-                            update_format = ", ".join([f"{i}=VALUES({i})" for i in fields])
-                        # make insert ignore query
-                        query = f"INSERT IGNORE INTO {table_name} " \
-                                f"({fields_format}) " \
-                                f"VALUES {values_format} " \
-                                f"ON DUPLICATE KEY UPDATE " \
-                                f"{update_format};"
-                    
-                    # insert data
-                    self.cur_.executemany(query,
-                                          data)
-                    
-                except pymysql.MySQLError as e:
-                    raise RuntimeError(f"Error while inserting data from the database: {e}")
-                except Exception as e:
-                    raise RuntimeError(f"Error: {emsg(e)}")
-
-            except:
-                raise TypeError(f"All fields must be identical.")
-
-        except:
-            raise ValueError(f"Input data != type(list) or empty")
-
+            # insert data
+            self.cur_.executemany(query,
+                                    data)
+            
+        except pymysql.MySQLError as e:
+            raise RuntimeError(f"Error while inserting data from the database: {e}")
+        except Exception as e:
+            raise RuntimeError(f"Error: {e}")
 

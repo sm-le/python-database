@@ -7,7 +7,6 @@
 # Module import
 import pymongo
 from typing import Dict
-from conf.error_message import emsg
 from dataclasses import dataclass
 
 # Main
@@ -71,11 +70,8 @@ class mongoConnect(object):
             database: a database name
         """
 
-        try:
-            databases = set(self.conn_.list_database_names())
-            assert database in databases
-        except:
-            assert ValueError(f"Please check your database name")
+        databases = set(self.conn_.list_database_names())
+        assert database in databases, f"Please check your database name"
 
     def check_collection(self,
                          collection_name:str,
@@ -88,11 +84,9 @@ class mongoConnect(object):
         """
 
         if not is_create_mode:
-            try:
-                collections = set(self.conn_.list_collection_names())
-                assert collection_name in collections
-            except:
-                assert ValueError(f"Please check your collection name")
+            collections = set(self.db_.list_collection_names())
+            assert collection_name in collections, "Please check your collection name"
+        
 
     def find(self,
              query:dict,
@@ -107,36 +101,33 @@ class mongoConnect(object):
             database: a database name
         """
 
+    
+        assert query, "Please set your query"
+        # ping database
+        self.ping()
+
+        # set database to mongoclient
+        if database:
+            self.check_database(database)
+            self.db_ = self.conn_[database]
+
         try:
-            assert query
-            # ping database
-            self.ping()
- 
-            # set database to mongoclient
-            if database:
-                self.check_database(database)
-                self.db_ = self.conn_[database]
+            self.check_collection(collection_name)
+            self.col_ = self.db_[collection_name]
 
-            try:
-                self.check_collection(collection_name)
-                self.col_ = self.db_[collection_name]
+            handle = self.col_.find(query)
 
-                handle = self.col_.find(query)
+            # fetch result
+            result = list()
+            for row in handle:
+                result.append(row)
 
-                # fetch result
-                result = list()
-                for row in handle:
-                    result.append(row)
-
-                return result
-            
-            except pymongo.errors.OperationFailure as e:
-                raise RuntimeError(f"Error while fetching data from the database: {e}")
-            except pymongo.errors.PyMongoError as e:
-                raise RuntimeError(f"Error: {emsg(e)}")
-
-        except:
-            raise ValueError(f"Please check your query")
+            return result
+        
+        except pymongo.errors.OperationFailure as e:
+            raise RuntimeError(f"Error while fetching data from the database: {e}")
+        except pymongo.errors.PyMongoError as e:
+            raise RuntimeError(f"{e}")
     
     def insert(self,
                *
@@ -153,53 +144,50 @@ class mongoConnect(object):
             is_merge_mode: whether to upsert data on duplicate record
         """
 
+        
+        assert type(rows) == list, "Please set your data as list"
+        assert len(rows) > 0, "Please set your data"
+
+        # ping database
+        self.ping()
+
+        # set database to mongoclient
+        if database:
+            self.check_database(database)
+            self.db_ = self.conn_[database]
+
         try:
-            assert type(rows) == list
-            assert len(rows) > 0
+            self.check_collection(collection_name)
+            self.col_ = self.db_[collection_name]
 
-            # ping database
-            self.ping()
-
-            # set database to mongoclient
-            if database:
-                self.check_database(database)
-                self.db_ = self.conn_[database]
-
-            try:
-                self.check_collection(collection_name)
-                self.col_ = self.db_[collection_name]
-
-                # insert data
-                self.col_.insert_many(rows)
-            
-            except pymongo.errors.BulkWriteError:
-                if is_merge_mode:
-                    # collect record to find based on primary key
-                    duplicate_records = set()
-                    for search_record in self.col_.find({'_id':{'$in':[row['_id'] for row in rows]}}):
-                        duplicate_records.add(search_record['_id'])
-                    
-                    # collect document to write and classify document into replace and insert
-                    records_to_write = list()
-                    for row in rows:
-                        if row['_id'] in duplicate_records:
-                            records_to_write.append(pymongo.ReplaceOne( {"_id":row["_id"]},
-                                                                        row,
-                                                                        upsert=True ))
-                        else:
-                            records_to_write.append(pymongo.InsertOne( row ))
-                    
-                    # initiate bulk write
-                    self.col_.bulk_write(records_to_write)
-                else:
-                    raise RuntimeError(f"Duplicate record found and merge mode is not enabled: {e}")
-            except pymongo.errors.OperationFailure as e:
-                raise RuntimeError(f"Error while inserting data from the database: {e}")
-            except pymongo.errors.PyMongoError as e:
-                raise RuntimeError(f"Error: {emsg(e)}")
-
-        except:
-            raise ValueError(f"Input data != type(list) or empty")
+            # insert data
+            self.col_.insert_many(rows)
+        
+        except pymongo.errors.BulkWriteError:
+            if is_merge_mode:
+                # collect record to find based on primary key
+                duplicate_records = set()
+                for search_record in self.col_.find({'_id':{'$in':[row['_id'] for row in rows]}}):
+                    duplicate_records.add(search_record['_id'])
+                
+                # collect document to write and classify document into replace and insert
+                records_to_write = list()
+                for row in rows:
+                    if row['_id'] in duplicate_records:
+                        records_to_write.append(pymongo.ReplaceOne( {"_id":row["_id"]},
+                                                                    row,
+                                                                    upsert=True ))
+                    else:
+                        records_to_write.append(pymongo.InsertOne( row ))
+                
+                # initiate bulk write
+                self.col_.bulk_write(records_to_write)
+            else:
+                raise RuntimeError(f"Duplicate record found and merge mode is not enabled: {e}")
+        except pymongo.errors.OperationFailure as e:
+            raise RuntimeError(f"Error while inserting data from the database: {e}")
+        except pymongo.errors.PyMongoError as e:
+            raise RuntimeError(f"Error: {e}")
         
     def delete(self,
                *
@@ -216,28 +204,25 @@ class mongoConnect(object):
             override: a layer of safety to prevent accident
         """
 
+        
+        assert query, "Please set your query"
+        # ping database
+        self.ping()
+
+        # set database to mongoclient
+        if database:
+            self.check_database(database)
+            self.db_ = self.conn_[database]
+
         try:
-            assert query
-            # ping database
-            self.ping()
+            self.check_collection(collection_name)
+            self.col_ = self.db_[collection_name]
 
-            # set database to mongoclient
-            if database:
-                self.check_database(database)
-                self.db_ = self.conn_[database]
-
-            try:
-                self.check_collection(collection_name)
-                self.col_ = self.db_[collection_name]
-
-                # delete data
-                if override:
-                    self.col_.delete_many(query)
-            
-            except pymongo.errors.OperationFailure as e:
-                raise RuntimeError(f"Error while deleting data from the database: {e}")
-            except pymongo.errors.PyMongoError as e:
-                raise RuntimeError(f"Error: {emsg(e)}")
-
-        except:
-            raise ValueError(f"Please check your query")
+            # delete data
+            if override:
+                self.col_.delete_many(query)
+        
+        except pymongo.errors.OperationFailure as e:
+            raise RuntimeError(f"Error while deleting data from the database: {e}")
+        except pymongo.errors.PyMongoError as e:
+            raise RuntimeError(f"Error: {e}")

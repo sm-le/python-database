@@ -2,13 +2,15 @@
 # contributor: smlee
 
 # History
+# 2024-04-21 | v1.2 - add logger
 # 2024-03-28 | v1.1 - add insert method
 # 2024-03-27 | v1.0 - first commit
 
 # Module import
-from util.mysql.main import mariaConnect
-from util.mongo.main import mongoConnect
-from util.azure.main import AzureTable
+from pydb.util.mysql.main import mariaConnect
+from pydb.util.mongo.main import mongoConnect
+from pydb.util.azure.main import AzureTable
+from pydb.conf.logger import log, Logger
 from .func.create_db_pool import pooledDB
 from .func.get_secrets import get_secret
 from typing import List, Union, Dict
@@ -31,6 +33,9 @@ class databaseConnect:
     """
     name:str
     override:bool=False
+    log_config = Logger(name='pydb',verbose=1)
+    log_config.clear_log_content()
+    logger = log_config.get_logger()
 
     def __post_init__(self):
         secret = get_secret(self.name,self.override)
@@ -44,9 +49,6 @@ class databaseConnect:
         elif self.name == "azure":
             self.database = AzureTable(secret)
             
-        else:
-            raise TypeError(f"Invalid database: {self.name}")
-        
     def __enter__(self):
         """Instantiate mariaConnect class object"""
 
@@ -65,7 +67,7 @@ class databaseConnect:
             return True
         else:
             raise BaseException(f"Exit error: {exception_type}, {exception_value}, {traceback}")
-            
+    @log(set_logger=logger)      
     def select(self,
                *,
                query:str=None,
@@ -111,8 +113,8 @@ class databaseConnect:
                                                               name_filter=name_filter,
                                                               table_name=database))
         except:
-            raise ValueError("Invalid input arguments")
-
+            return self.log_config.get_log_content()
+    @log(set_logger=logger)
     def insert(self,
                *,
                data:Union[List,Dict]=None,
@@ -156,7 +158,7 @@ class databaseConnect:
                 asyncio.run(self.database.insert_entity(entity=data,
                                                         table_name=database))
         except:
-            raise ValueError("Invalid input arguments")
+            return self.log_config.get_log_content()
         
     def close(self):
         """Close database connection"""

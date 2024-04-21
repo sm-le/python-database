@@ -11,8 +11,12 @@ load_dotenv()
 import json
 from azure.keyvault.secrets import SecretClient
 from azure.identity import DefaultAzureCredential
+import logging
+logger = logging.getLogger('pydb')
+from pydb.conf import log
 
 # Main
+@log(set_logger=logger)
 def get_secret(secret_name:str,
                override:bool=False) -> str:
     """Get secret from key vault

@@ -2,16 +2,25 @@
 # contributor: smlee
 
 # History
+# 2024-06-02 | v2.0 - refactored and added Singleton pattern
 # 2024-03-27 | v1.0 - first commit
 
 # Python module
 import json
 from dbutils.pooled_db import PooledDB
 import pymysql
-from conf.error_message import emsg
 
 # Main
-def pooledDB(dbargs:dict) -> object:
+class Singleton(type):
+    _instances = {}
+    def __call__(cls, *args, **kwargs):
+        if cls not in cls._instances:
+            cls._instances[cls] = super(Singleton, cls).__call__(*args, **kwargs)
+        return cls._instances[cls]
+
+
+@dataclass
+class DBPool(metaclass=Singleton):
     """Make PooledDB object with DBUtils
 
     Args:
@@ -19,32 +28,18 @@ def pooledDB(dbargs:dict) -> object:
     Returns:
         object(pooled_DB)
     """
-    try:
-        ## Setup
-        if "database" in dbargs:
-            db_credential = {"host" : dbargs["host"],
-                            "user" : dbargs["user"],
-                            "password" : dbargs["password"],
-                            "port" : dbargs["port"],
-                            "database":dbargs["database"],
-                            "autocommit": True}
-        else:
-            db_credential = {"host" : dbargs["host"],
-                            "user" : dbargs["user"],
-                            "password" : dbargs["password"],
-                            "port" : dbargs["port"],
-                            "autocommit": True}
-            
-        ## Pool
-        pool_setting = {"creator":pymysql,
-                        "maxconnections":5,
-                        "ping":1,
-                        **db_credential}
+    _dbc:dict
 
-        ## PooledDB
-        pooled_DB = PooledDB(**pool_setting)
-
-        return pooled_DB
+    def __post_init__(self):
+        self._pool_config = {"creator":pymysql,
+                             "mincached":1,
+                             "maxcached":5,
+                             "maxshared":3,
+                             "maxconnections":10,
+                             **self._dbc}
     
-    except Exception as e:
-        print(f"Error while creating DB pool: {emsg(e)}")
+    def get_pool(self):
+        try:
+            return PooledDB(**self._pool_config)
+        except Exception as e:
+            raise ValueError(f"Error: {e}")

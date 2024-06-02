@@ -25,10 +25,10 @@ class databaseConnect:
     Args:
         database: database name
         * current database list:
-            - signal
-            - record
-            - sequence
+            - mariadb/mysql
+            - mongodb
             - azure
+            - postgresql (coming soon)
         override: optional argument
     """
     name:str

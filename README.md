@@ -1,4 +1,5 @@
 # python-database-connector
+v1.0.1 - sqlite will be integrated to main in next version
 
 # About
 A collection of database connectors
@@ -14,3 +15,4 @@ A collection of database connectors
 7. python-dotenv
 8. zstandard
 9. aiohttps
+10. sqlite3

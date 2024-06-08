@@ -9,6 +9,7 @@
 import json
 from dbutils.pooled_db import PooledDB
 import pymysql
+from dataclasses import dataclass
 
 # Main
 class Singleton(type):

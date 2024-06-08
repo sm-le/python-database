@@ -7,11 +7,11 @@
 # 2024-03-27 | v1.0 - first commit
 
 # Module import
-from pydb.util.mysql.main import mariaConnect
-from pydb.util.mongo.main import mongoConnect
-from pydb.util.azure.main import AzureTable
+from pydb.util.mysql import mariaConnect
+from pydb.util.mongo import mongoConnect
+from pydb.util.azure import AzureTable
 from pydb.conf.logger import log, Logger
-from .func.create_db_pool import pooledDB
+from .func.create_db_pool import DBPool
 from .func.get_secrets import get_secret
 from typing import List, Union, Dict
 from dataclasses import dataclass
@@ -28,6 +28,7 @@ class databaseConnect:
             - mariadb/mysql
             - mongodb
             - azure
+            - sqlite (will be integrated soon, refer util for now)
             - postgresql (coming soon)
         override: optional argument
     """
@@ -41,13 +42,16 @@ class databaseConnect:
         secret = get_secret(self.name,self.override)
 
         if self.name == "mariadb" or self.name == "mysql":
-            self.database = mariaConnect(pooledDB(secret),True)
+            self.database = mariaConnect(DBPool(secret),True)
 
         elif self.name == "mongodb":
             self.database = mongoConnect(secret)
             
         elif self.name == "azure":
             self.database = AzureTable(secret)
+        
+        elif self.name == "sqlite":
+            self.database = ""
             
     def __enter__(self):
         """Instantiate mariaConnect class object"""

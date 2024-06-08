@@ -14,5 +14,5 @@ A collection of database connectors
 6. azure-keyvault-secrets
 7. python-dotenv
 8. zstandard
-9. aiohttps
-10. sqlite3
+9. aiohttp
+10. sqlite

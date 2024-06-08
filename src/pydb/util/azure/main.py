@@ -34,7 +34,7 @@ class AzureTable:
         except HttpResponseError as e:
             raise RuntimeError(f"Error connection to the database: {e}")
         except Exception as e:
-            raise RuntimeError(f"Error: {emsg(e)}")
+            raise RuntimeError(f"{e}")
     
     def _format_batch_operation(self,
                                 *,
@@ -102,29 +102,26 @@ class AzureTable:
         Returns:
             bool
         """
+        
+        assert table_name, "Please set your table name"
+        assert type(entity) == list or type(entity) == dict, "Please set your entity"
+
         try:
-            assert table_name
-            assert type(entity) == list or type(entity) == dict
+            async with TableClient.from_connection_string(conn_str=self.connection_string,
+                                                            table_name=table_name) as tClient:
+                # single entity operation
+                if type(entity) == dict or len(entity) == 1:
+                    _ = await tClient.upsert_entity(mode=UpdateMode.MERGE, entity=entity)
+                # batch mode
+                else:
+                    operations: List[TransactionOperationType] = self._format_batch_operation(entities=entity,
+                                                                                                ctype='upsert')
+                    _ = await tClient.submit_transaction(operations)
 
-            try:
-                async with TableClient.from_connection_string(conn_str=self.connection_string,
-                                                              table_name=table_name) as tClient:
-                    # single entity operation
-                    if type(entity) == dict or len(entity) == 1:
-                        _ = await tClient.upsert_entity(mode=UpdateMode.MERGE, entity=entity)
-                    # batch mode
-                    else:
-                        operations: List[TransactionOperationType] = self._format_batch_operation(entities=entity,
-                                                                                                  ctype='upsert')
-                        _ = await tClient.submit_transaction(operations)
-
-            except TableTransactionError as e:
-                raise RuntimeError(f"Error while updating entity: {e}")
-            except Exception as e:
-                raise RuntimeError(f"Error: {emsg(e)}")
-
-        except:
-            raise ValueError(f"Input data != type(list) or data != type(dict) or empty")
+        except TableTransactionError as e:
+            raise RuntimeError(f"Error while updating entity: {e}")
+        except Exception as e:
+            raise RuntimeError(f"{e}")
 
     async def delete_entity(self,
                             *,
@@ -139,28 +136,26 @@ class AzureTable:
             bool
         """
         
+        
+        assert table_name, "Please set your table name"
+        assert type(entity) == list or type(entity) == dict, "Please set your entity"
+
         try:
-            assert table_name
-            assert type(entity) == list or type(entity) == dict
+            async with TableClient.from_connection_string(conn_str=self.connection_string,
+                                                            table_name=table_name) as tClient:
+                # single entity operation
+                if type(entity) == dict or len(entity) == 1:
+                    _ = await tClient.delete_entity(entity=entity)
+                # batch mode
+                else:
+                    operations: List[TransactionOperationType] = self._format_batch_operation(entities=entity,
+                                                                                                ctype='delete')
+                    _ = await tClient.submit_transaction(operations)
 
-            try:
-                async with TableClient.from_connection_string(conn_str=self.connection_string,
-                                                              table_name=table_name) as tClient:
-                    # single entity operation
-                    if type(entity) == dict or len(entity) == 1:
-                        _ = await tClient.delete_entity(entity=entity)
-                    # batch mode
-                    else:
-                        operations: List[TransactionOperationType] = self._format_batch_operation(entities=entity,
-                                                                                                  ctype='delete')
-                        _ = await tClient.submit_transaction(operations)
-
-            except TableTransactionError as e:
-                raise RuntimeError(f"Error while deleting entity: {e}")
-            except Exception as e:
-                raise RuntimeError(f"Error: {emsg(e)}")
-        except:
-            raise ValueError(f"Input data != type(list) or data != type(dict) or empty")
+        except TableTransactionError as e:
+            raise RuntimeError(f"Error while deleting entity: {e}")
+        except Exception as e:
+            raise RuntimeError(f"Error: {e}")
 
     async def query_entity(self,
                            *,
@@ -182,26 +177,23 @@ class AzureTable:
             list(selected rows)
         """
 
-        try:
-            assert table_name
-            assert select
-            assert parameters
-            assert name_filter
+        
+        assert table_name, "Please set your table name"
+        assert select, "Please set your select statement"
+        assert parameters, "Please set your parameters"
+        assert name_filter, "Please set your filter statement"
 
-            try:
-                async with TableClient.from_connection_string(conn_str=self.connection_string,
-                                                            table_name=table_name) as tClient:
-                    
-                    qentity = await tClient.query_entities(query_filter=name_filter,
-                                                           select=select,
-                                                           parameters=parameters)
+        try:
+            async with TableClient.from_connection_string(conn_str=self.connection_string,
+                                                        table_name=table_name) as tClient:
                 
-                    return qentity
+                qentity = await tClient.query_entities(query_filter=name_filter,
+                                                        select=select,
+                                                        parameters=parameters)
             
-            except HttpResponseError as e:
-                raise RuntimeError(f"Error while querying entity: {e}")
-            except Exception as e:
-                raise RuntimeError(f"Error: {emsg(e)}")
-                
-        except:
-            raise ValueError(f"Please set your query")
+                return qentity
+        
+        except HttpResponseError as e:
+            raise RuntimeError(f"Error while querying entity: {e}")
+        except Exception as e:
+            raise RuntimeError(f"{e}")

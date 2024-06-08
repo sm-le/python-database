@@ -7,3 +7,4 @@ azure-keyvault-secrets
 python-dotenv
 zstandard
 aiohttps
+sqlite3

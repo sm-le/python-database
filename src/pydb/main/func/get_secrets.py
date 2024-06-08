@@ -11,10 +11,16 @@ load_dotenv()
 import json
 from azure.keyvault.secrets import SecretClient
 from azure.identity import DefaultAzureCredential
+import logging
+logger = logging.getLogger('pydb')
+from pydb.conf import log
 
 # Main
+@log(set_logger=logger)
 def get_secret(secret_name:str,
-               override:bool=False) -> str:
+               *,
+               override:bool=False,
+               path:bool=False) -> str:
     """Get secret from key vault
 
     Args:
@@ -33,6 +39,8 @@ def get_secret(secret_name:str,
                 return secret
         else:
             raise FileNotFoundError(f"Secret path not found: {secret_name}")
+    elif path:
+        return secret_name
     else:
         key_vault_name = os.environ.get("database_vault_name")
         if key_vault_name:

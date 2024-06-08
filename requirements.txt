@@ -7,4 +7,3 @@ azure-keyvault-secrets
 python-dotenv
 zstandard
 aiohttp
-sqlite

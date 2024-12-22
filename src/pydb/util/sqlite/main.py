@@ -111,7 +111,7 @@ class SQLiteConnector(object):
                *,
                table_name:str,
                columns:List[str],
-               conditions:Dict[str, Union[str, int]]):
+               conditions:Dict[str, Union[str, int]]=None):
           """Select values from table
     
           Args:
@@ -120,7 +120,9 @@ class SQLiteConnector(object):
                 conditions (Dict[str, Union[str, int]]): Column name and value
           """
           column_format = ','.join([f"[{k}]" for k in columns])
-          condition_format = ' AND '.join([f"[{k}] = '{v}'" if type(v) == str else f"[{k}] = {v}" for k, v in conditions.items()])
-          query = f"SELECT {column_format} FROM {table_name} WHERE {condition_format}"
+          query = f"SELECT {column_format} FROM {table_name}"
+          if conditions:
+              condition_format = ' AND '.join([f"[{k}] = '{v}'" if type(v) == str else f"[{k}] = {v}" for k, v in conditions.items()])
+              query = f"{query} WHERE {condition_format}"
           self._cursor.execute(query)
           return self._cursor.fetchall()

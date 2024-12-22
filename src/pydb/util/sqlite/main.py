@@ -2,29 +2,28 @@
 # contributor: smlee
 
 # History
+# 2024-12-22 - v1.0.1 | add logging
 # 2024-06-01 - v1.0.0 | refactored from old repo
 
 # Module
 import sqlite3
-from dataclasses import dataclass
 from typing import Union, List, Dict
 import logging
+logger = logging.getLogger('pydb')
 from pydb.conf import log
 
 
 # Main
-@dataclass
 class SQLiteConnector(object):
     """Instance method for SQLite3 connection and operation
 
     Args:
         _conn_medium (str): Connection medium
     """
-    _conn_medium:str
-    logger = logging.getLogger('pydb')
 
-    def __post_init__(self):
-        self._conn = sqlite3.connect(self._conn_medium)
+    def __init__(self,
+                 _conn_medium:str):
+        self._conn = sqlite3.connect(_conn_medium)
         self._cursor = self._conn.cursor()
 
     def __enter__(self):
@@ -41,7 +40,7 @@ class SQLiteConnector(object):
             return True
         else:
             raise BaseException(f"Exit error: {exception_type}, {exception_value}, {traceback}")
-
+    @log(set_logger=logger)
     def create_table(self,
                      *,
                      table_name:str, 
@@ -57,6 +56,7 @@ class SQLiteConnector(object):
         self._cursor.execute(query)
         self._conn.commit()
 
+    @log(set_logger=logger)
     def insert(self,
                *,
                table_name:str,
@@ -78,6 +78,7 @@ class SQLiteConnector(object):
         self._cursor.executemany(query,[list(i.values()) for i in values])
         self._conn.commit()
 
+    @log(set_logger=logger)
     def merge(self,
                *,
                table_name:str,
@@ -105,12 +106,12 @@ class SQLiteConnector(object):
         #         f"({column_format}) VALUES ({value_format})"
         # self._cursor.execute(query)
         # self._conn.commit()
-   
+    @log(set_logger=logger)
     def select(self,
                *,
                table_name:str,
                columns:List[str],
-               conditions:Dict[str, Union[str, int]]):
+               conditions:Dict[str, Union[str, int]]=None):
           """Select values from table
     
           Args:
@@ -119,7 +120,9 @@ class SQLiteConnector(object):
                 conditions (Dict[str, Union[str, int]]): Column name and value
           """
           column_format = ','.join([f"[{k}]" for k in columns])
-          condition_format = ' AND '.join([f"[{k}] = '{v}'" if type(v) == str else f"[{k}] = {v}" for k, v in conditions.items()])
-          query = f"SELECT {column_format} FROM {table_name} WHERE {condition_format}"
+          query = f"SELECT {column_format} FROM {table_name}"
+          if conditions:
+              condition_format = ' AND '.join([f"[{k}] = '{v}'" if type(v) == str else f"[{k}] = {v}" for k, v in conditions.items()])
+              query = f"{query} WHERE {condition_format}"
           self._cursor.execute(query)
           return self._cursor.fetchall()

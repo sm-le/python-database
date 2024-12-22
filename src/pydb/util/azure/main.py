@@ -2,6 +2,7 @@
 # contributors: smlee
 
 # History
+# 2024-12-22 | v1.1 - removed dataclass
 # 2024-03-23 | v1.0 - moved and refactored
 
 # Module import
@@ -9,7 +10,6 @@ from azure.data.tables.aio import TableClient
 from azure.core.exceptions import ResourceExistsError, HttpResponseError
 from azure.data.tables import UpdateMode, TableTransactionError, TableEntity, TransactionOperation
 from typing import Any, List, Mapping, Tuple, Union, Dict
-from dataclasses import dataclass
 
 # Set Types
 EntityType = Union[TableEntity, Mapping[str, Any]]
@@ -17,14 +17,17 @@ OperationType = Union[TransactionOperation, str]
 TransactionOperationType = Union[Tuple[OperationType, EntityType], Tuple[OperationType, EntityType, Mapping[str, Any]]]
 
 # Main
-@dataclass
 class AzureTable:
     """Azure Table class to interact with Azure Table Storage
     """
-    conn_medium_:Dict
+    def __init__(self,conn_medium_:Dict[str,str|int]):
+        """Instatiate
 
-    def __post_init__(self):
+        Args:
+            conn_medium_: a connection medium (e.g. credential)
+        """
         try:
+            self.conn_medium_ = conn_medium_
             storage_name = self.conn_medium_.get('storage name')
             account_key = self.conn_medium_.get('account key')
             self.connection_string = f"DefaultEndpointsProtocol=https;" \

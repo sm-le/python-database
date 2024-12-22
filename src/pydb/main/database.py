@@ -2,6 +2,7 @@
 # contributor: smlee
 
 # History
+# 2024-12-22 | v1.3 - add SQLite and removed dataclass
 # 2024-04-21 | v1.2 - add logger
 # 2024-03-28 | v1.1 - add insert method
 # 2024-03-27 | v1.0 - first commit
@@ -10,15 +11,17 @@
 from pydb.util.mysql import mariaConnect
 from pydb.util.mongo import mongoConnect
 from pydb.util.azure import AzureTable
+from pydb.util.sqlite import SQLiteConnector
 from pydb.conf.logger import log, Logger
+log_config = Logger(name='pydb',verbose=1)
+log_config.clear_log_content()
+logger = log_config.get_logger()
 from .func.create_db_pool import DBPool
 from .func.get_secrets import get_secret
 from typing import List, Union, Dict
-from dataclasses import dataclass
 import asyncio
 
 # Main
-@dataclass
 class databaseConnect:
     """Database connection class
     
@@ -32,13 +35,15 @@ class databaseConnect:
             - postgresql (coming soon)
         override: optional argument
     """
-    name:str
-    override:bool=False
-    log_config = Logger(name='pydb',verbose=1)
-    log_config.clear_log_content()
-    logger = log_config.get_logger()
 
-    def __post_init__(self):
+    def __init__(self,
+                 name:str,
+                 override:bool=False):
+        # configuration
+        self.name = name
+        self.override = override
+        
+        # database setting
         secret = get_secret(self.name,self.override)
 
         if self.name == "mariadb" or self.name == "mysql":
@@ -51,7 +56,7 @@ class databaseConnect:
             self.database = AzureTable(secret)
         
         elif self.name == "sqlite":
-            self.database = ""
+            self.database = SQLiteConnector(secret)
             
     def __enter__(self):
         """Instantiate mariaConnect class object"""
@@ -96,6 +101,10 @@ class databaseConnect:
                 parameters: a dictionary of parameters for Azure Table
                 name_filter: a filter for Azure Table
                 database: a table name for Azure Table
+            For SQLite,
+                database (required): a table name for SQLite
+                features (required): a list of columns to select from SQLite
+                parameters (optional): a filter for SQLite 
         Returns:
             list(rows matched conditions)
         """
@@ -116,6 +125,12 @@ class databaseConnect:
                                                               parameters=parameters,
                                                               name_filter=name_filter,
                                                               table_name=database))
+            elif self.name == "sqlite":
+                assert database
+                assert features
+                return self.database.select(table_name=database,
+                                            columns=features,
+                                            conditions=parameters)
         except:
             return self.log_config.get_log_content()
     @log(set_logger=logger)
@@ -161,6 +176,11 @@ class databaseConnect:
                 assert database
                 asyncio.run(self.database.insert_entity(entity=data,
                                                         table_name=database))
+            elif self.name == "sqlite":
+                assert data
+                assert table_name
+                self.database.insert(table_name=table_name,
+                                     values=data)
         except:
             return self.log_config.get_log_content()
         

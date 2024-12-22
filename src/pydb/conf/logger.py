@@ -2,29 +2,35 @@
 # contributors: smlee
 
 # History
+# 2024-12-22 - v1.0.1 | removed dataclass and verbose correction. 
 # 2024-04-20 - v1.0.0 | first commit
 
 # Module
 import logging
 import functools
 from io import StringIO
-from dataclasses import dataclass
 from typing import Union
 
 # Main
-@dataclass
 class Logger:
     """Logger class to log messages
+    """
 
-    Args:
-        verbose (str): verbose level
+    def __init__(self,
+                 name:str,
+                 verbose:int=10):
+        """Instantiate Logger object
+
+        Args:
+            name: logger name
+            verbose: debug information
                 1: info
                 10: debug
-    """
-    name:str = None
-    verbose:str = "info"
+        """
+        # default
+        self.name = name
+        self.verbose = verbose
 
-    def __post_init__(self):
         self.log_stream:StringIO = StringIO()
         formatter = logging.Formatter(fmt="[%(asctime)s] %(levelname)s [%(name)s.%(funcName)s:%(lineno)d] %(message)s",
                                       datefmt='%Y-%m-%dT%H:%M:%S')

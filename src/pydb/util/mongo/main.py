@@ -2,25 +2,27 @@
 # contributor: smlee
 
 # History
+# 2024-12-22 | v1.1 - removed dataclass
 # 2024-03-15 | v1.0 - refactored for a common tool
 
 # Module import
 import pymongo
 from typing import Dict
-from dataclasses import dataclass
 
 # Main
-@dataclass
 class mongoConnect(object):
     """Instance method for MongoDB connection and operation
-
-    Args:
-        conn_medium_: a connection medium (e.g. credential)
     """
-    conn_medium_:Dict
+    
+    def __init__(self,
+                 conn_medium_:Dict[str,int|str]):
+        """Instantiate
 
-    def __post_init__(self):
+        Args:
+            conn_medium_: a connection medium (e.g. credential)
+        """
         try:
+            self.conn_medium_ = conn_medium_
             self.conn_ = pymongo.MongoClient(**self.conn_medium_)
 
         except pymongo.errors.PyMongoError as e:

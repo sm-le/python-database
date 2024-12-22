@@ -2,32 +2,34 @@
 # contributors: smlee
 
 # History
+# 2024-12-22 | v1.3 - remove dataclass
 # 2024-06-02 | v1.2 - add transaction check and logger
 # 2024-03-18 | v1.1 - add entrypoint, fixed ping method
 # 2024-03-15 | v1.0 - refactored for a common tool
 
 # Module import
 import pymysql
-from dataclasses import dataclass
 from typing import Union, List, Dict
 import logging
+logger = logging.getLogger('pydb')
 from pydb.conf import log
 
 # Main
-@dataclass
 class mariaConnect(object):
     """Instance method for MariaDB connection and operation
-
-    Args:
-        conn_medium_: a connection medium either credential or connection pool
-        pool_: a boolean for using connection pool, default: False
     """
-    conn_medium_:Union[object,dict]
-    pool_:object=False
-    logger = logging.getLogger('pydb')
+    def __init__(self,
+                 conn_medium_:object|dict,
+                 pool_:bool=False):
+        """Instantiate
 
-    def __post_init__(self):
+        Args:
+            conn_medium_ (object|dict): a connection medium either credential or connection pool
+            pool_ (bool): a boolean for using connection pool, default: False
+        """
         try:
+            self.conn_medium_ = conn_medium_
+            self.pool_ = pool_
             self.conn_:object=self.conn_medium_.connection() if self.pool_ else pymysql.connect(**self.conn_medium_)
             self.cur_:object=self.conn_.cursor(pymysql.cursors.DictCursor)
         except pymysql.MySQLError as e:
@@ -230,8 +232,6 @@ class mariaConnect(object):
         except Exception as e:
             raise RuntimeError(f"{e}")
 
-
-      
     @log(set_logger=logger)
     def merge(self,
               *,

@@ -2,7 +2,7 @@
 # contributor: smlee
 
 # History
-# 2024-12-22 | v1.3 - add SQLite and removed dataclass
+# 2024-12-22 | v1.3 - add SQLite, removed dataclass, and log bug fix
 # 2024-04-21 | v1.2 - add logger
 # 2024-03-28 | v1.1 - add insert method
 # 2024-03-27 | v1.0 - first commit
@@ -11,7 +11,7 @@
 from pydb.util.mysql import mariaConnect
 from pydb.util.mongo import mongoConnect
 from pydb.util.azure import AzureTable
-from pydb.util.sqlite import SQLiteConnector
+from pydb.util.sqlite import SQLiteConnect
 from pydb.conf.logger import log, Logger
 log_config = Logger(name='pydb',verbose=1)
 log_config.clear_log_content()
@@ -22,7 +22,7 @@ from typing import List, Union, Dict
 import asyncio
 
 # Main
-class databaseConnect:
+class Database:
     """Database connection class
     
     Args:
@@ -38,13 +38,14 @@ class databaseConnect:
 
     def __init__(self,
                  name:str,
-                 override:bool=False):
+                 *,
+                 path:str=str(),
+                 vault:bool=False):
         # configuration
         self.name = name
-        self.override = override
         
         # database setting
-        secret = get_secret(self.name,self.override)
+        secret = get_secret(self.name,path=path,vault=vault)
 
         if self.name == "mariadb" or self.name == "mysql":
             self.database = mariaConnect(DBPool(secret),True)
@@ -56,7 +57,7 @@ class databaseConnect:
             self.database = AzureTable(secret)
         
         elif self.name == "sqlite":
-            self.database = SQLiteConnector(secret)
+            self.database = SQLiteConnect(secret)
             
     def __enter__(self):
         """Instantiate mariaConnect class object"""
@@ -84,6 +85,7 @@ class databaseConnect:
                features:list=None,
                parameters:dict=None,
                name_filter:str=None,
+               table_name:str=None,
                collection_name:str=None) -> List:
         """Execute SELECT command from MariaDB or findall from MongoDB or query entity from Azure Table Storage 
         using either input query (MariaDB) or conditions (MongoDB) or entity (Azure Table Storage) 
@@ -102,7 +104,7 @@ class databaseConnect:
                 name_filter: a filter for Azure Table
                 database: a table name for Azure Table
             For SQLite,
-                database (required): a table name for SQLite
+                table_name (required): a table name for SQLite
                 features (required): a list of columns to select from SQLite
                 parameters (optional): a filter for SQLite 
         Returns:
@@ -128,11 +130,11 @@ class databaseConnect:
             elif self.name == "sqlite":
                 assert database
                 assert features
-                return self.database.select(table_name=database,
+                return self.database.select(table_name=table_name,
                                             columns=features,
                                             conditions=parameters)
         except:
-            return self.log_config.get_log_content()
+            return log_config.get_log_content()
     @log(set_logger=logger)
     def insert(self,
                *,
@@ -144,7 +146,21 @@ class databaseConnect:
         """Insert data into the database
         
         Args:
-        
+            For MariaDB,
+                data (List|Dict): data
+                table_name (str): table name
+                database (optional): database name for MariaDB // table_name for Azure Table
+            For MongoDB,
+                data (List|Dict): data
+                collection_name: a collection name for MongoDB
+                database (optional): a database name for MongoDB
+                is_merge_mode (bool): whether to use merge mode
+            For AzureTable,
+                data (List|Dict): data
+                database: a table name for Azure Table
+            For SQLite,
+                data (List|Dict): data
+                table_name (str): table name
         
         """
         try:
@@ -182,7 +198,7 @@ class databaseConnect:
                 self.database.insert(table_name=table_name,
                                      values=data)
         except:
-            return self.log_config.get_log_content()
+            return log_config.get_log_content()
         
     def close(self):
         """Close database connection"""

@@ -2,7 +2,7 @@
 # contributor: smlee
 
 # History
-# 2024-12-22 - v1.0.1 | add logging
+# 2024-12-22 - v1.0.1 | add logging, add close function
 # 2024-06-01 - v1.0.0 | refactored from old repo
 
 # Module
@@ -14,7 +14,7 @@ from pydb.conf import log
 
 
 # Main
-class SQLiteConnector(object):
+class SQLiteConnect(object):
     """Instance method for SQLite3 connection and operation
 
     Args:
@@ -33,8 +33,7 @@ class SQLiteConnector(object):
                  exception_type, 
                  exception_value, 
                  traceback):
-        self.conn_.close()
-        self.cur_.close()
+        self.close()
 
         if not exception_type:
             return True
@@ -126,3 +125,10 @@ class SQLiteConnector(object):
               query = f"{query} WHERE {condition_format}"
           self._cursor.execute(query)
           return self._cursor.fetchall()
+    
+    def close(self):
+        """Close database
+        """
+
+        self._cursor.close()
+        self._conn.close()

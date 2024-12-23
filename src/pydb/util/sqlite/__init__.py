@@ -1,3 +1,3 @@
-from .main import SQLiteConnector
+from .main import SQLiteConnect
 
-__all__ = ["SQLiteConnector"]
+__all__ = ["SQLiteConnect"]

@@ -1,3 +1,3 @@
-from .database import databaseConnect
+from .database import Database
 
-__all__ = ["databaseConnect"]
+__all__ = ["Database"]

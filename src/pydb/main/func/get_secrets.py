@@ -2,6 +2,7 @@
 # contributer = smlee
 
 # History
+# 2024-12-22 | v2.0 - vault became no priority, making path a priority
 # 2024-03-27 | v1.0 - first commit
 
 # Module import
@@ -14,34 +15,33 @@ from azure.identity import DefaultAzureCredential
 import logging
 logger = logging.getLogger('pydb')
 from pydb.conf import log
+import yaml
 
 # Main
 @log(set_logger=logger)
 def get_secret(secret_name:str,
                *,
-               override:bool=False,
-               path:bool=False) -> str:
+               path:str=str(),
+               vault:bool=False) -> str:
     """Get secret from key vault
 
     Args:
+        path: credential file path, if it is not provided. It will search environment variable
         secret_name: secret name
-        override: if True, use imported secret path 
+        vault: if True, use imported secret path 
 
     Returns:
         str(secret value)
     """
-    if override:
-        path = os.environ.get(f"database_{secret_name}")
-        if path:
-            with open(path, "r") as f:
-                secret = json.load(f)
-
-                return secret
+    if path:
+        with open(path) as f:
+            secret = yaml.safe_load(f).get(secret_name)
+        if secret:
+            return secret
         else:
-            raise FileNotFoundError(f"Secret path not found: {secret_name}")
-    elif path:
-        return secret_name
-    else:
+            raise ValueError(f"Failed to get secret on {secret_name}")
+        
+    elif vault:
         key_vault_name = os.environ.get("database_vault_name")
         if key_vault_name:
             key_vault_uri = f"https://{key_vault_name}.vault.azure.net/"
@@ -53,3 +53,12 @@ def get_secret(secret_name:str,
             return json.loads(secret.value)
         else:
             raise KeyError("Key vault name is not set in environment variable. Please set it with 'database_vault_name'")
+    else:
+        c__path = os.environ.get(f"database_{secret_name}")
+        if c__path:
+            with open(c__path, "r") as f:
+                secret = json.load(f)
+
+                return secret
+        else:
+            raise FileNotFoundError(f"Secret path not found: {secret_name}. Please setup your .env file.")

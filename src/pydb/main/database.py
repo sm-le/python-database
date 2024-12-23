@@ -128,7 +128,7 @@ class Database:
                                                               name_filter=name_filter,
                                                               table_name=database))
             elif self.name == "sqlite":
-                assert database
+                assert table_name
                 assert features
                 return self.database.select(table_name=table_name,
                                             columns=features,
